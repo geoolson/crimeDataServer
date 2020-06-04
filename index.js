@@ -18,10 +18,12 @@ const requrl = (ORI, year) => {
 
 app.use(express.urlencoded({extended: true}));
 
-app.get('/*/*/*', (req, res) =>{
-    const lat = parseFloat(req.path.split('/')[1]);
-    const lng = parseFloat(req.path.split('/')[2]);
-    const year = parseFloat(req.path.split('/')[3]);
+app.get('/api/*/*/*', (req, res) =>{
+    const pathSplit = req.path.split('/');
+    const lat = parseFloat(pathSplit[2]);
+    const lng = parseFloat(pathSplit[3]);
+    const year = parseFloat(pathSplit[4]);
+    console.time("execution time");
     const agencies = agencyLat
         .filter((agency) => {
             if (
@@ -43,21 +45,23 @@ app.get('/*/*/*', (req, res) =>{
                 curr.ori
             ]
         }, []);
+    console.timeEnd("execution time");
+    let responseData = [];
     for(let agency of agencies){
-        console.log(requrl(agency, year));
+        axios.get(requrl(agency, year))
+            .then( response => {
+                responseData = [...responseData, response.data]
+                if(responseData.length === agencies.length){
+                    res.json(responseData);
+                }
+            })
+            .catch( error => {
+                responseData = [...responseData, "error"]
+                if(responseData.length === agencies.length){
+                    res.json(responseData);
+                }
+            })
     }
-    console.log(agencies);
-    console.log(agencies.length);
-    res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-        <head>
-            <title>Form Response</title>
-        </head>
-        <body>
-        ${lat} ${lng} ${year}
-        </body>
-    </html>`);
 })
 
 app.listen(port, () => {
