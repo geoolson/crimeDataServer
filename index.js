@@ -10,15 +10,20 @@ const axios = require('axios').default;
 const lngRange = 0.2;
 const latRange = 0.1;
 
-const apiKey = process.env.API_KEY;
+// A Map/dict data structure to cache previous API queries. Keys are the request url
+// and the the value is the api payload response.
+let apiCache = new Map();
+
+
 const requrl = (ORI, year) => {
+    const apiKey = process.env.API_KEY;
     const url = `https://api.usa.gov/crime/fbi/sapi/api/data/arrest/agencies/offense/`;
     return `${url}${ORI}/monthly/${year}/${year}?API_KEY=${apiKey}`;
 };
 
 app.use(express.urlencoded({extended: true}));
 
-app.get('/api/*/*/*', (req, res) =>{
+app.get('/api/*/*/*', (req, res) => {
     const pathSplit = req.path.split('/');
     const lat = parseFloat(pathSplit[2]);
     const lng = parseFloat(pathSplit[3]);
@@ -34,12 +39,11 @@ app.get('/api/*/*/*', (req, res) =>{
             ) {
                 return true;
             }
-            else
-            {
+            else {
                 return false;
             }
         })
-        .reduce((acc, curr) =>{
+        .reduce((acc, curr) => {
             return [
                 ...acc,
                 curr.ori
@@ -47,22 +51,34 @@ app.get('/api/*/*/*', (req, res) =>{
         }, []);
     console.timeEnd("execution time");
     let responseData = [];
-    for(let agency of agencies){
-        axios.get(requrl(agency, year))
-            .then( response => {
-                responseData = [...responseData, response.data]
-                if(responseData.length === agencies.length){
-                    res.json(responseData);
-                }
-            })
-            .catch( error => {
-                responseData = [...responseData, "error"]
-                if(responseData.length === agencies.length){
-                    res.json(responseData);
-                }
-            })
+    for (let agency of agencies) {
+        let apiReq = requrl(agency, year);
+        if (apiCache.has(apiReq)) {
+            responseData = [...responseData, apiCache.get(apiReq)]
+            if (responseData.length === agencies.length) {
+                res.json(responseData);
+            }
+        }
+        else {
+            ((api_req) => {
+                axios.get(api_req)
+                    .then(response => {
+                        responseData = [...responseData, response.data]
+                        apiCache.set(api_req, response.data)
+                        if (responseData.length === agencies.length) {
+                            res.json(responseData);
+                        }
+                    })
+                    .catch(error => {
+                        responseData = [...responseData, "error"]
+                        if (responseData.length === agencies.length) {
+                            res.json(responseData);
+                        }
+                    })
+            })(apiReq);
+        }
     }
-})
+});
 
 app.listen(port, () => {
     console.log(`listening on port: ${port}`);
