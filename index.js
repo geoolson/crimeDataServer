@@ -9,8 +9,8 @@ const agencyLng = JSON.parse(fs.readFileSync('agencyLng.json', 'utf8'));
 const zipCodes = JSON.parse(fs.readFileSync('zipCodes.json', 'utf8'));
 const axios = require('axios').default;
 
-const lngRange = 0.2;
-const latRange = 0.1;
+const lngRange = 0.4;
+const latRange = 0.2;
 
 app.use(cors());
 
@@ -56,13 +56,17 @@ app.get('/api/*/*/*', (req, res) => {
         .reduce((acc, curr) => {
             return [
                 ...acc,
-                curr.ori
+                {
+                    ori: curr.ori,
+                    lat: curr.latitude,
+                    lng: curr.longitude
+                }
             ]
         }, []);
     console.timeEnd("execution time");
     let responseData = [];
     for (let agency of agencies) {
-        let apiReq = requrl(agency, year);
+        let apiReq = requrl(agency.ori, year);
         if (apiCache.has(apiReq)) {
             responseData = [...responseData, apiCache.get(apiReq)]
             if (responseData.length === agencies.length) {
@@ -70,12 +74,17 @@ app.get('/api/*/*/*', (req, res) => {
             }
         }
         else {
-            ((api_req) => {
+            ((api_req, agency) => {
                 axios.get(api_req)
                     .then(response => {
+                        response.data.location = {
+                            lat: agency.lat,
+                            lng: agency.lng
+                        };
                         responseData = [...responseData, response.data]
                         apiCache.set(api_req, response.data)
                         if (responseData.length === agencies.length) {
+                            console.log(responseData)
                             res.json(responseData);
                         }
                     })
@@ -85,7 +94,7 @@ app.get('/api/*/*/*', (req, res) => {
                             res.json(responseData);
                         }
                     })
-            })(apiReq);
+            })(apiReq, agency);
         }
     }
 });
