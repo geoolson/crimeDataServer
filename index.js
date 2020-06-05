@@ -1,14 +1,18 @@
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors')
 const app = express();
 const fs = require('fs');
 const port = 8080;
 const agencyLat = JSON.parse(fs.readFileSync('agencyLat.json', 'utf8'));
 const agencyLng = JSON.parse(fs.readFileSync('agencyLng.json', 'utf8'));
+const zipCodes = JSON.parse(fs.readFileSync('zipCodes.json', 'utf8'));
 const axios = require('axios').default;
 
 const lngRange = 0.2;
 const latRange = 0.1;
+
+app.use(cors());
 
 // A Map/dict data structure to cache previous API queries. Keys are the request url
 // and the the value is the api payload response.
@@ -22,6 +26,12 @@ const requrl = (ORI, year) => {
 };
 
 app.use(express.urlencoded({extended: true}));
+
+app.get('/search/*', (req, res) =>{
+    const pathSplit = req.path.split('/');
+    const zip = parseInt(pathSplit[2])
+    res.json(zipCodes[zip]);
+})
 
 app.get('/api/*/*/*', (req, res) => {
     const pathSplit = req.path.split('/');
